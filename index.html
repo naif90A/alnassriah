@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مجموعة الناصرية | لإدارة الرواتب</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; color: #333; margin: 0; padding: 0; direction: rtl; }
+        header { background: #000; color: #fff; padding: 20px 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { display: grid; grid-template-columns: 350px 1fr; gap: 30px; padding: 30px; }
+        .card { border: 1px solid #ddd; padding: 20px; background: #fff; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h3 { border-bottom: 2px solid #000; padding-bottom: 10px; margin-top: 0; font-size: 1.1rem; color: #000; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; text-align: right; }
+        input:focus { border-color: #27ae60; outline: none; box-shadow: 0 0 5px rgba(39,174,96,0.3); }
+        button { width: 100%; padding: 12px; border: none; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.3s; margin-top: 5px; border-radius: 4px; }
+        .btn-green { background: #27ae60; color: #fff; }
+        .btn-black { background: #000; color: #fff; }
+        .btn-red { background: #e74c3c; color: #fff; }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+        th { text-align: right; background: #f8f8f8; padding: 15px; border-bottom: 3px solid #000; }
+        td { padding: 15px; border-bottom: 1px solid #eee; text-align: right; }
+        .salary-box { font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 1.1rem; direction: ltr; display: inline-block; }
+        .loan-tag { display: inline-block; background: #fff1f0; color: #e74c3c; border: 1px solid #e74c3c; padding: 2px 8px; font-size: 0.75rem; margin-top: 5px; border-radius: 3px; margin-left: 5px; }
+        .status-dot { height: 10px; width: 10px; background-color: #27ae60; border-radius: 50%; display: inline-block; margin-left: 10px; }
+        
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>مجموعة الناصرية <span style="font-weight: 200;">| الرواتب المركزية</span></h2>
+    <div id="liveClock" style="font-family: monospace; font-size: 1.2rem;">00:00:00</div>
+</header>
+
+<div class="container">
+    <div>
+        <div class="card">
+            <h3>إضافة موظف جديد</h3>
+            <input type="text" id="empId" placeholder="المعرف (ID)">
+            <input type="text" id="empName" placeholder="اسم الموظف الكامل">
+            <input type="text" id="empIqama" placeholder="رقم الإقامة">
+            <input type="number" id="empSalary" placeholder="الراتب الأساسي">
+            <button class="btn-green" onclick="addEmployee()">حفظ الموظف في النظام</button>
+        </div>
+
+        <div class="card">
+            <h3>تسجيل سلفة / خصم</h3>
+            <input type="text" id="targetId" placeholder="معرف الموظف (ID)">
+            <input type="number" id="loanVal" placeholder="مبلغ الخصم">
+            <button class="btn-black" onclick="applyLoan()">تطبيق الخصم الفوري</button>
+        </div>
+
+        <div class="card">
+            <h3>الدورة المالية</h3>
+            <button class="btn-red" onclick="resetMonthlyCycle()">تصفير الشهر (مسح السلف)</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>سجل الموظفين والرواتب</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>الموظف / الإقامة</th>
+                        <th>ID</th>
+                        <th>الأساسي</th>
+                        <th>الصافي الحالي</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // جلب البيانات من ذاكرة المتصفح
+    let db = JSON.parse(localStorage.getItem("alnasiriya_hr")) || {};
+
+    function saveAndRender() {
+        localStorage.setItem("alnasiriya_hr", JSON.stringify(db));
+        renderTable();
+    }
+
+    // إضافة موظف
+    function addEmployee() {
+        const id = document.getElementById("empId").value.trim();
+        const name = document.getElementById("empName").value.trim();
+        const iqama = document.getElementById("empIqama").value.trim();
+        const salary = parseFloat(document.getElementById("empSalary").value);
+
+        // تم إصلاح الشرط هنا (إضافة علامات ||)
+        if (!id || !name || !iqama || isNaN(salary)) {
+            return alert("يرجى إدخال جميع البيانات بشكل صحيح");
+        }
+
+        if (db[id]) return alert("المعرف موجود مسبقاً لموظف آخر");
+
+        db[id] = {
+            name: name,
+            iqama: iqama,
+            base: salary,
+            current: salary,
+            loansHistory: []
+        };
+
+        saveAndRender();
+        
+        // مسح الخانات بعد الإضافة
+        document.getElementById("empId").value = "";
+        document.getElementById("empName").value = "";
+        document.getElementById("empIqama").value = "";
+        document.getElementById("empSalary").value = "";
+    }
+
+    // تطبيق سلفة
+    function applyLoan() {
+        const id = document.getElementById("targetId").value.trim();
+        const amount = parseFloat(document.getElementById("loanVal").value);
+
+        if (!db[id]) return alert("الموظف غير موجود");
+        if (isNaN(amount) || amount <= 0) return alert("أدخل مبلغاً صحيحاً");
+
+        db[id].current -= amount;
+        db[id].loansHistory.push({
+            amount: amount,
+            date: new Date().toLocaleDateString("ar-SA")
+        });
+
+        saveAndRender();
+        document.getElementById("targetId").value = "";
+        document.getElementById("loanVal").value = "";
+    }
+
+    // تصفير الشهر
+    function resetMonthlyCycle() {
+        if (confirm("هل تريد تصفير السلف وبدء شهر جديد؟ (الأسماء ستبقى والرواتب ستعود للأصل)")) {
+            for (let id in db) {
+                db[id].current = db[id].base;
+                db[id].loansHistory = [];
+            }
+            saveAndRender();
+        }
+    }
+
+    // حذف موظف
+    function deleteEmp(id) {
+        if (confirm("هل أنت متأكد من حذف الموظف نهائياً؟")) {
+            delete db[id];
+            saveAndRender();
+        }
+    }
+
+    // عرض الجدول
+    function renderTable() {
+        const table = document.getElementById("dataTable");
+        table.innerHTML = "";
+
+        for (let id in db) {
+            let emp = db[id];
+            let loansList = emp.loansHistory.map(l => `<div class="loan-tag">-${l.amount} (${l.date})</div>`).join('');
+            
+            table.innerHTML += `
+                <tr>
+                    <td>
+                        <span class="status-dot"></span><strong>${emp.name}</strong><br>
+                        <small style="color:#777">إقامة: ${emp.iqama}</small>
+                        <div style="margin-top:5px;">${loansList}</div>
+                    </td>
+                    <td>#${id}</td>
+                    <td>${emp.base}</td>
+                    <td class="salary-box" style="color:${emp.current < emp.base ? '#e74c3c' : '#27ae60'}">
+                        ${emp.current.toLocaleString()} ر.س
+                    </td>
+                    <td>
+                        <button class="btn-red" style="padding:5px 10px; font-size:12px; width:auto;" onclick="deleteEmp('${id}')">حذف</button>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // ساعة حية
+    setInterval(() => {
+        document.getElementById("liveClock").innerText = new Date().toLocaleTimeString("ar-SA");
+    }, 1000);
+
+    // تشغيل العرض الأولي عند تحميل الصفحة
+    renderTable();
+</script>
+
+</body>
+</html>
